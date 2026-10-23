@@ -25,7 +25,34 @@ const $=id=>document.getElementById(id);
 const money=n=>"₲ "+Number(n||0).toLocaleString("es-PY");
 function message(t){$("msg").textContent=t}
 async function call(action,data={}){const {data:{session}}=await sb.auth.getSession();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?.access_token||""),"apikey":KEY},body:JSON.stringify({action,...data}),signal:controller.signal});let j;try{j=await r.json()}catch(_){throw Error("El servidor respondió de forma inesperada. Probá de nuevo.")}if(!r.ok||j.error)throw Error(j.error||"No se pudo completar la operación.");return j}catch(e){if(e.name==="AbortError")throw Error("El servidor tardó más de 12 segundos. Revisá la conexión e intentá otra vez.");throw e}finally{clearTimeout(timer)}}
-async function login(){const email=$("email").value.trim(),password=$("password").value;if(!email||!password){message("Escribí el correo y la contraseña.");return}message("Verificando acceso…");$("loginBtn").disabled=true;try{const result=await Promise.race([sb.auth.signInWithPassword({email,password}),new Promise((_,reject)=>setTimeout(()=>reject(new Error("La conexión de acceso tardó demasiado. Revisá internet e intentá otra vez.")),12000))]);if(result.error)throw Error("No se pudo iniciar sesión: "+result.error.message);const d=await call("admin-dashboard");if(!d.campaign)throw Error("No se encontró la campaña.");$("login").classList.add("hidden");$("app").classList.remove("hidden");message("Sesión iniciada. El servidor validó el acceso administrativo.");renderDash(d);await loadSellers();await loadTickets()}catch(e){message(e.name==="AbortError"?"La conexión tardó demasiado. Revisá internet y volvé a intentar.":(e.message||"No se pudo conectar."));try{await sb.auth.signOut()}catch(_){}}finally{$("loginBtn").disabled=false}}
+async function login(){
+ const email=$("email").value.trim(),password=$("password").value;
+ if(!email||!password){message("Escribí el correo y la contraseña.");return}
+ message("Verificando tu cuenta…");$("loginBtn").disabled=true;
+ let authenticated=false;
+ try{
+  const result=await Promise.race([
+   sb.auth.signInWithPassword({email,password}),
+   new Promise((_,reject)=>setTimeout(()=>reject(new Error("La conexión de acceso tardó demasiado. Revisá internet e intentá otra vez.")),12000))
+  ]);
+  if(result.error)throw Error("No se pudo iniciar sesión: "+result.error.message);
+  authenticated=true;
+  message("Cuenta verificada. Cargando el panel administrativo…");
+  $("login").classList.add("hidden");$("app").classList.remove("hidden");
+  try{
+   const d=await call("admin-dashboard");
+   if(!d.campaign)throw Error("No se encontró la campaña.");
+   message("Sesión iniciada. El servidor validó el acceso administrativo.");
+   renderDash(d);
+   await loadSellers();await loadTickets();
+  }catch(e){
+   message("Tu cuenta inició sesión, pero no se pudieron cargar los datos del panel. No cerré tu sesión. Detalle: "+(e.message||"Error desconocido")+". Tocá «Actualizar resumen» para volver a intentar.");
+  }
+ }catch(e){
+  message(e.name==="AbortError"?"La conexión tardó demasiado. Revisá internet y volvé a intentar.":(e.message||"No se pudo conectar."));
+  if(!authenticated){try{await sb.auth.signOut()}catch(_){}}
+ }finally{$("loginBtn").disabled=false}
+}
 function renderDash(d){lastDash=d;$("campStatus").textContent=d.campaign.status;$("campName").textContent=d.campaign.name;$("total").textContent=d.campaign.total_tickets;$("available").textContent=d.counts.available||0;$("assigned").textContent=d.counts.assigned||0;$("sold").textContent=(d.counts.sold||0)+(d.counts.played||0);$("sales").textContent=money(d.total_sales)}
 async function refresh(){try{message("Actualizando…");renderDash(await call("admin-dashboard"));message("Resumen actualizado.")}catch(e){message(e.message)}}
 async function loadSellers(){try{const d=await call("admin-list-sellers");sellerRows=d.sellers||[];$("sellers").innerHTML=sellerRows.map(s=>'<div class="row"><b>'+esc(s.name)+'</b> · '+esc(s.username||"sin usuario")+' · '+esc(s.status)+'<br><span class="small">Tel: '+esc(s.phone||"—")+' · Código: '+esc(s.access_code||"—")+'</span>'+(s.status==="active"?'<button class="secondary" onclick="deactivate(\''+s.id+'\')">Desactivar y devolver solo boletas no vendidas</button>':"")+'</div>').join("")||"Todavía no hay vendedoras.";const active=sellerRows.filter(s=>s.status==="active");$("sellerSelect").innerHTML='<option value="">Elegí vendedora activa</option>'+active.map(s=>'<option value="'+s.id+'">'+esc(s.name)+' ('+esc(s.username||"")+")</option>").join("")}catch(e){message(e.message)}}
