@@ -35,20 +35,24 @@ async function playOnThisPhone(n){
   }catch(e){msg(e.message)}
 }
 async function sendTicket(n){
-  const t=current.tickets.find(x=>Number(x.ticket_number)===Number(n));
-  if(!t)return;
+  const t=current?.tickets?.find(x=>Number(x.ticket_number)===Number(n));
+  if(!t){msg("No encontré esa boleta. Tocá Actualizar mis boletas.");return}
+  const number=String(n).padStart(4,"0");
   try{
+    msg("Preparando WhatsApp para la boleta "+number+"…");
+    let link=t.customer_link;
     if(t.status==="assigned"){
       const d=await call("seller-mark-sold",{ticket_number:n});
-      const link=d.customer_link||t.customer_link;
-      if(!link)throw Error("No llegó el enlace de la boleta.");
-      current=await call("seller-tickets");render(current);
-      window.open("https://wa.me/?text="+encodeURIComponent("🎟️ RASPADITA MILLONARIA\nElegiste la boleta N.º "+String(n).padStart(4,"0")+". Jugá acá: "+link),"_blank");
-      msg("Boleta "+String(n).padStart(4,"0")+" registrada como vendida y lista para enviar por WhatsApp.");
-    }else{
-      window.open("https://wa.me/?text="+encodeURIComponent("🎟️ RASPADITA MILLONARIA\nTu boleta: "+t.customer_link),"_blank");
+      link=d.customer_link||link;
+      if(!link)throw Error("La boleta quedó registrada, pero no llegó el enlace. Tocá Actualizar mis boletas.");
+      current=await call("seller-tickets");
+      render(current);
     }
-  }catch(e){msg(e.message)}
+    if(!link)throw Error("No encontré el enlace de esta boleta.");
+    msg("Abriendo WhatsApp para enviar la boleta "+number+"…");
+    // No usar window.open: Android WebView suele bloquear ventanas nuevas.
+    location.href="https://wa.me/?text="+encodeURIComponent("🎟️ RASPADITA MILLONARIA\nBoleta N.º "+number+". Jugá acá: "+link);
+  }catch(e){msg(e.message||"No se pudo preparar el envío. Revisá internet e intentá de nuevo.")}
 }
 async function shareAvailable(){
   const available=(current?.tickets||[]).filter(t=>t.status==="assigned");
