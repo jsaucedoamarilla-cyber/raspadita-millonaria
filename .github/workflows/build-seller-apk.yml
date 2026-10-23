@@ -20,8 +20,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verificar Android SDK del servidor de compilación
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/platforms"
       - name: Compilar APK
         run: gradle --no-daemon assembleDebug
         working-directory: seller-app
