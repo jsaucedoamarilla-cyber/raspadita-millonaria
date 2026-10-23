@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'seller-app/**'
+      - 'seller/**'
       - '.github/workflows/build-seller-apk.yml'
 jobs:
   build:
@@ -25,6 +26,8 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           test -d "$ANDROID_HOME/platforms"
           ls "$ANDROID_HOME/platforms"
+      - name: Sincronizar pantalla de vendedora
+        run: cp seller/index.html seller-app/app/src/main/assets/seller.html
       - name: Compilar APK
         run: gradle --no-daemon assembleDebug
         working-directory: seller-app
