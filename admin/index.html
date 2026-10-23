@@ -13,45 +13,34 @@
 <div class="card"><h2>🔎 Inventario de boletas</h2><div class="grid"><input id="ticketSearch" type="number" min="1" max="5000" placeholder="Número exacto (opcional)"><select id="pageSize"><option value="25">25 por página</option><option value="50" selected>50 por página</option><option value="100">100 por página</option></select></div><button id="loadTickets">Consultar boletas</button><div id="tickets"></div><div class="grid"><button class="secondary" id="prev">Anterior</button><button class="secondary" id="next">Siguiente</button></div><span id="pageLabel" class="small">Página 1</span></div>
 <div class="card"><h2>💵 Registrar premio pagado</h2><input id="paidTicket" type="number" min="1" placeholder="Número de boleta premiada"><button id="markPaid">Marcar como pagado</button></div>
 </section>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0" onerror='this.onerror=null;this.src="https://unpkg.com/@supabase/supabase-js@2.57.0/dist/umd/supabase.js";'></script>
+
 <script>
 const URL="https://kevrsvgalmskvqnysbkd.supabase.co";
 const KEY="sb_publishable_itHsSSmgXCLNWjfldx_f5A_J7ImxfOX";
 const API=URL+"/functions/v1/raspadita-public";
-if(!window.supabase){document.getElementById("msg").textContent="No se pudo cargar el servicio de acceso. Revisá tu conexión a internet y recargá la página.";throw new Error("No se pudo cargar Supabase JS");}
-const sb=window.supabase.createClient(URL,KEY,{global:{fetch:(input,init={})=>{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);return fetch(input,{...init,signal:controller.signal}).finally(()=>clearTimeout(timer));}}});
+let adminSession=null;
 let page=1,lastDash=null,sellerRows=[];
 const $=id=>document.getElementById(id);
 const money=n=>"₲ "+Number(n||0).toLocaleString("es-PY");
 function message(t){$("msg").textContent=t}
-async function call(action,data={}){const {data:{session}}=await sb.auth.getSession();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?.access_token||""),"apikey":KEY},body:JSON.stringify({action,...data}),signal:controller.signal});let j;try{j=await r.json()}catch(_){throw Error("El servidor respondió de forma inesperada. Probá de nuevo.")}if(!r.ok||j.error)throw Error(j.error||"No se pudo completar la operación.");return j}catch(e){if(e.name==="AbortError")throw Error("El servidor tardó más de 12 segundos. Revisá la conexión e intentá otra vez.");throw e}finally{clearTimeout(timer)}}
+async function call(action,data={}){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(adminSession?.access_token||""),"apikey":KEY},body:JSON.stringify({action,...data}),signal:controller.signal});let j;try{j=await r.json()}catch(_){throw Error("El servidor respondió de forma inesperada. Probá de nuevo.")}if(!r.ok||j.error)throw Error(j.error||"No se pudo completar la operación.");return j}catch(e){if(e.name==="AbortError")throw Error("El servidor tardó más de 12 segundos. Revisá la conexión e intentá otra vez.");throw e}finally{clearTimeout(timer)}}
 async function login(){
  const email=$("email").value.trim(),password=$("password").value;
  if(!email||!password){message("Escribí el correo y la contraseña.");return}
  message("Verificando tu cuenta…");$("loginBtn").disabled=true;
  let authenticated=false;
  try{
-  const result=await Promise.race([
-   sb.auth.signInWithPassword({email,password}),
-   new Promise((_,reject)=>setTimeout(()=>reject(new Error("La conexión de acceso tardó demasiado. Revisá internet e intentá otra vez.")),12000))
-  ]);
-  if(result.error)throw Error("No se pudo iniciar sesión: "+result.error.message);
-  authenticated=true;
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);
+  let response,auth;
+  try{response=await fetch(URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({email,password}),signal:controller.signal});auth=await response.json()}finally{clearTimeout(timer)}
+  if(!response.ok||!auth.access_token)throw Error(auth.msg||auth.error_description||auth.message||"No se pudo iniciar sesión. Revisá el correo y la contraseña.");
+  adminSession=auth;authenticated=true;
   message("Cuenta verificada. Cargando el panel administrativo…");
   $("login").classList.add("hidden");$("app").classList.remove("hidden");
-  try{
-   const d=await call("admin-dashboard");
-   if(!d.campaign)throw Error("No se encontró la campaña.");
-   message("Sesión iniciada. El servidor validó el acceso administrativo.");
-   renderDash(d);
-   await loadSellers();await loadTickets();
-  }catch(e){
-   message("Tu cuenta inició sesión, pero no se pudieron cargar los datos del panel. No cerré tu sesión. Detalle: "+(e.message||"Error desconocido")+". Tocá «Actualizar resumen» para volver a intentar.");
-  }
- }catch(e){
-  message(e.name==="AbortError"?"La conexión tardó demasiado. Revisá internet y volvé a intentar.":(e.message||"No se pudo conectar."));
-  if(!authenticated){try{await sb.auth.signOut()}catch(_){}}
- }finally{$("loginBtn").disabled=false}
+  try{const d=await call("admin-dashboard");if(!d.campaign)throw Error("No se encontró la campaña.");renderDash(d);message("Sesión iniciada. Panel administrativo conectado.");await loadSellers();await loadTickets()}
+  catch(e){message("La cuenta inició sesión, pero falló la carga del panel: "+(e.message||"Error desconocido")+". Tocá «Actualizar resumen» para reintentar.")}
+ }catch(e){message(e.name==="AbortError"?"La conexión tardó demasiado. Revisá internet e intentá otra vez.":(e.message||"No se pudo conectar."));if(!authenticated)adminSession=null}
+ finally{$("loginBtn").disabled=false}
 }
 function renderDash(d){lastDash=d;$("campStatus").textContent=d.campaign.status;$("campName").textContent=d.campaign.name;$("total").textContent=d.campaign.total_tickets;$("available").textContent=d.counts.available||0;$("assigned").textContent=d.counts.assigned||0;$("sold").textContent=(d.counts.sold||0)+(d.counts.played||0);$("sales").textContent=money(d.total_sales)}
 async function refresh(){try{message("Actualizando…");renderDash(await call("admin-dashboard"));message("Resumen actualizado.")}catch(e){message(e.message)}}
@@ -63,5 +52,5 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 async function loadTickets(){try{const search=$("ticketSearch").value.trim();const d=await call("admin-list-tickets",{page,page_size:Number($("pageSize").value),search});$("pageLabel").textContent="Página "+d.page+" · "+d.tickets.length+" boletas";$("tickets").innerHTML=d.tickets.map(t=>'<div class="row"><b>Boleta '+t.ticket_number+'</b> · '+esc(t.status)+'<br>Premio: '+esc(t.prize_symbol||"Sin premio")+" "+money(t.prize_amount)+' · '+(t.prize_paid_at?"Premio pagado":"Pago pendiente")+'<br><button class="secondary" onclick="copyLink(\''+t.customer_link+'\')">Copiar enlace de cliente</button></div>').join("")||"No se encontraron boletas."}catch(e){message(e.message)}}
 async function copyLink(link){try{await navigator.clipboard.writeText(link);message("Enlace copiado.")}catch(e){prompt("Copiá el enlace:",link)}}
 async function markPaid(){try{const d=await call("admin-mark-prize-paid",{ticket_number:Number($("paidTicket").value)});message("Premio de boleta "+d.ticket.ticket_number+" marcado como pagado: "+money(d.ticket.prize_amount));await loadTickets()}catch(e){message(e.message)}}
-$("previewBtn").onclick=()=>{$("login").classList.add("hidden");$("app").classList.remove("hidden");message("VISTA DE PRUEBA: esta pantalla es solo una demostración. No está conectada a datos reales y no permite realizar cambios.");$("campStatus").textContent="DEMO";$("campName").textContent="Vista de prueba";$("total").textContent="—";$("available").textContent="—";$("assigned").textContent="—";$("sold").textContent="—";$("sales").textContent="—";document.querySelectorAll("#app button,#app input,#app select").forEach(el=>{el.disabled=true})};$("loginBtn").onclick=login;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")login()});$("refresh").onclick=refresh;$("logout").onclick=async()=>{await sb.auth.signOut();location.reload()};$("createSeller").onclick=createSeller;$("loadSellers").onclick=loadSellers;$("assign").onclick=assign;$("loadTickets").onclick=()=>{page=1;loadTickets()};$("prev").onclick=()=>{page=Math.max(1,page-1);loadTickets()};$("next").onclick=()=>{page++;loadTickets()};$("markPaid").onclick=markPaid;
+$("previewBtn").onclick=()=>{$("login").classList.add("hidden");$("app").classList.remove("hidden");message("VISTA DE PRUEBA: esta pantalla es solo una demostración. No está conectada a datos reales y no permite realizar cambios.");$("campStatus").textContent="DEMO";$("campName").textContent="Vista de prueba";$("total").textContent="—";$("available").textContent="—";$("assigned").textContent="—";$("sold").textContent="—";$("sales").textContent="—";document.querySelectorAll("#app button,#app input,#app select").forEach(el=>{el.disabled=true})};$("loginBtn").onclick=login;$("password").addEventListener("keydown",e=>{if(e.key==="Enter")login()});$("refresh").onclick=refresh;$("logout").onclick=()=>{adminSession=null;location.reload()};$("createSeller").onclick=createSeller;$("loadSellers").onclick=loadSellers;$("assign").onclick=assign;$("loadTickets").onclick=()=>{page=1;loadTickets()};$("prev").onclick=()=>{page=Math.max(1,page-1);loadTickets()};$("next").onclick=()=>{page++;loadTickets()};$("markPaid").onclick=markPaid;
 </script></body></html>
