@@ -29,7 +29,7 @@ async function playOnThisPhone(n){
     const d=await call("seller-mark-sold",{ticket_number:n});
     const link=d.customer_link||current.tickets.find(t=>Number(t.ticket_number)===Number(n))?.customer_link;
     if(!link)throw Error("La boleta quedó registrada, pero no llegó el enlace. Tocá Actualizar mis boletas.");
-    window.open(link,"_blank");
+    location.href=link;
     msg("Boleta "+String(n).padStart(4,"0")+" registrada. Se abrirá el juego en este celular.");
     current=await call("seller-tickets");render(current);
   }catch(e){msg(e.message)}
