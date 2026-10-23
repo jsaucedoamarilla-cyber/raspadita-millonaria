@@ -13,12 +13,13 @@
 <div class="card"><h2>🔎 Inventario de boletas</h2><div class="grid"><input id="ticketSearch" type="number" min="1" max="5000" placeholder="Número exacto (opcional)"><select id="pageSize"><option value="25">25 por página</option><option value="50" selected>50 por página</option><option value="100">100 por página</option></select></div><button id="loadTickets">Consultar boletas</button><div id="tickets"></div><div class="grid"><button class="secondary" id="prev">Anterior</button><button class="secondary" id="next">Siguiente</button></div><span id="pageLabel" class="small">Página 1</span></div>
 <div class="card"><h2>💵 Registrar premio pagado</h2><input id="paidTicket" type="number" min="1" placeholder="Número de boleta premiada"><button id="markPaid">Marcar como pagado</button></div>
 </section>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0" onerror="this.onerror=null;this.src=\'https://unpkg.com/@supabase/supabase-js@2.57.0/dist/umd/supabase.js\'"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0" onerror='this.onerror=null;this.src="https://unpkg.com/@supabase/supabase-js@2.57.0/dist/umd/supabase.js";'></script>
 <script>
 const URL="https://kevrsvgalmskvqnysbkd.supabase.co";
 const KEY="sb_publishable_itHsSSmgXCLNWjfldx_f5A_J7ImxfOX";
 const API=URL+"/functions/v1/raspadita-public";
-if(!window.supabase){document.getElementById("msg").textContent="No se pudo cargar el servicio de acceso. Revisá tu conexión a internet y recargá la página.";throw new Error("No se pudo cargar Supabase JS");}\nconst sb=window.supabase.createClient(URL,KEY,{global:{fetch:(input,init={})=>{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);return fetch(input,{...init,signal:controller.signal}).finally(()=>clearTimeout(timer));}}});
+if(!window.supabase){document.getElementById("msg").textContent="No se pudo cargar el servicio de acceso. Revisá tu conexión a internet y recargá la página.";throw new Error("No se pudo cargar Supabase JS");}
+const sb=window.supabase.createClient(URL,KEY,{global:{fetch:(input,init={})=>{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);return fetch(input,{...init,signal:controller.signal}).finally(()=>clearTimeout(timer));}}});
 let page=1,lastDash=null,sellerRows=[];
 const $=id=>document.getElementById(id);
 const money=n=>"₲ "+Number(n||0).toLocaleString("es-PY");
