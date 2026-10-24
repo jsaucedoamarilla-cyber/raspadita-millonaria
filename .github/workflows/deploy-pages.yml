@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'index.html'
       - 'admin/**'
       - 'seller/**'
       - 'customer/**'
@@ -26,9 +27,10 @@ jobs:
       - name: Preparar páginas
         run: |
           mkdir -p dist/admin dist/seller dist/customer
-          cp admin/index.html dist/admin/index.html
-          cp seller/index.html dist/seller/index.html
-          cp customer/index.html dist/customer/index.html
+          cp index.html dist/index.html
+          cp -R admin/. dist/admin/
+          cp -R seller/. dist/seller/
+          cp -R customer/. dist/customer/
           touch dist/.nojekyll
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
