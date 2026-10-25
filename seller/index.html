@@ -76,7 +76,7 @@ async function shareAvailable(){
   },"image/png");
 }
 async function refresh(){try{msg("Actualizando…");current=await call("seller-tickets");render(current);msg("Lista actualizada.")}catch(e){msg(e.message)}}
-async function markSold(n){if(!confirm("¿Confirmás que cobraste la boleta "+n+"?"))return;try{const d=await call("seller-mark-sold",{ticket_number:n});msg("Boleta "+n+" registrada como vendida. Compartí el enlace con el cliente.");current=await call("seller-tickets");render(current);if(confirm("¿Abrir WhatsApp para compartir la boleta ahora?"))window.open("https://wa.me/?text="+encodeURIComponent("🎟️ RASP﻿ADITA MILLONARIA\nJugá tu boleta acá: "+d.customer_link),"_blank")}catch(e){msg(e.message)}}
+async function markSold(n){if(!confirm("¿Confirmás que cobraste la boleta "+n+"?"))return;try{const d=await call("seller-mark-sold",{ticket_number:n});msg("Boleta "+n+" registrada como vendida. Compartí el enlace con el cliente.");current=await call("seller-tickets");render(current);if(confirm("¿Abrir WhatsApp para compartir la boleta ahora?"))location.href="https://wa.me/?text="+encodeURIComponent("🎟️ RASPADITA MILLONARIA\nJugá tu boleta acá: "+d.customer_link)}catch(e){msg(e.message)}}
 async function share(enc){const link=decodeURIComponent(enc);try{await navigator.clipboard.writeText(link);msg("Enlace copiado. También podés usar Enviar por WhatsApp.")}catch(e){prompt("Copiá el enlace:",link)}}
 async function remit(){try{const d=await call("seller-remit",{amount:Number($("remitAmount").value),note:$("remitNote").value});msg("Rendición registrada: "+money(d.remittance.amount));$("remitAmount").value="";$("remitNote").value=""}catch(e){msg(e.message)}}
 $("shareAvailable").onclick=shareAvailable;
